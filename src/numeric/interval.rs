@@ -4,9 +4,6 @@ pub struct Interval<T> {
     right: T,
     left_open: bool,
     right_open: bool,
-
-    _norm_left: T,
-    _norm_right: T
 }
 
 use num::PrimInt;
@@ -22,17 +19,23 @@ impl<T: PrimInt + Signed> Interval<T> {
         if right == Self::pos_inf() { right }
         else if !right_open { right + T::one() } else { right }
     }
+    fn unnorm_left(&self) -> T {
+        if self.left == Self::neg_inf() { self.left }
+        else if self.left_open { self.left - T::one() } else { self.left }
+    }
+    fn unnorm_right(&self) -> T {
+        if self.right == Self::pos_inf() { self.right }
+        else if self.right_open { self.right } else { self.right - T::one() }
+    }
 
     pub fn new(left: T, right: T, left_open: bool, right_open: bool) -> Self {
         let mut _left_open = if left == Self::neg_inf() { true } else { left_open };
         let mut _right_open = if right == Self::pos_inf() { true } else { right_open };
         Self {
-            left,
-            right,
+            left: Self::norm_left(left, _left_open),
+            right: Self::norm_right(right, _right_open),
             left_open: _left_open,
-            right_open: _right_open,
-            _norm_left: Self::norm_left(left, _left_open),
-            _norm_right: Self::norm_right(right, _right_open),
+            right_open: _right_open
         }
     }
 }
@@ -41,8 +44,8 @@ impl<T: PrimInt + Signed + ToString> std::fmt::Display for Interval<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}{}, {}{}",
                 if self.left_open {'('} else {'['},
-                if self.left == Self::neg_inf() { String::from("-INF") } else { self.left.to_string() },
-                if self.right == Self::pos_inf() { String::from("+INF") } else { self.right.to_string() },
+                if self.left == Self::neg_inf() { String::from("-INF") } else { self.unnorm_left().to_string() },
+                if self.right == Self::pos_inf() { String::from("+INF") } else { self.unnorm_right().to_string() },
                 if self.right_open {')'} else {']'})
     }
 }

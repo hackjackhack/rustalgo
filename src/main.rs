@@ -1,5 +1,4 @@
-use algorithm::ITVL;
-use algorithm::numeric::interval::Interval;
+use algorithm::{ITVL, numeric::interval::Interval};
 
 fn main() {
     let a = ITVL!(5, 10;);

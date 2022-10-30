@@ -1,4 +1,4 @@
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Interval<T> {
     left: T,
     right: T,
@@ -40,6 +40,9 @@ impl<T: PrimInt + Signed> Interval<T> {
     }
     pub fn left(&self) -> T { self.unnorm_left() }
     pub fn right(&self) -> T { self.unnorm_right() }
+    pub fn normed_left(&self) -> T { self.left }
+    pub fn normed_right(&self) -> T { self.right.max(self.left) }
+    pub fn norm(&self) -> Self { Self::new(self.normed_left(), self.normed_right(), false, true) }
     pub fn is_left_open(&self) -> bool { self.left_open }
     pub fn is_right_open(&self) -> bool { self.right_open }
     pub fn is_finite(&self) -> bool { self.left != Self::neg_inf() && self.right != Self::pos_inf() }
@@ -63,12 +66,39 @@ impl<T: PrimInt + Signed> Interval<T> {
         self.left = self.left.saturating_sub(addend);
         if self.left > Self::neg_inf() { Ok(self) } else { Err("Lower-bound cracks") }
     }
+    pub fn intersect(&self, other: &Self) -> Option<Self> {
+        if self == other { return Some(self.clone()); }
+        if self < other || other < self { return None }
+        Some(Self::new(
+            self.normed_left().max(other.normed_left()),
+            self.normed_right().min(other.normed_right()),
+            false, true
+        ))
+    }
+    pub fn is_overlap_with(&self, other: &Self) -> bool {
+        self.intersect(other).is_some()
+    }
 
 }
 
 impl<T: PrimInt + Signed> PartialEq for Interval<T> {
     fn eq(&self, other: &Self) -> bool {
         self.left == other.left && self.right == other.right
+    }
+}
+
+impl<T: PrimInt + Signed> PartialOrd for Interval<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if self == other {
+            return Some(std::cmp::Ordering::Equal);
+        }
+        if self.normed_right() <= other.normed_left() {
+            return Some(std::cmp::Ordering::Less);
+        }
+        if other.normed_right() <= self.normed_left() {
+            return Some(std::cmp::Ordering::Greater)
+        }
+        return None
     }
 }
 
@@ -198,5 +228,35 @@ mod tests {
         assert!(b.extend_right(1).is_err());
         assert!(b.extend_left(1).is_err());
         assert_eq!(ITVL!(;;i8), b);
+    }
+
+    #[test]
+    fn test_order() {
+        assert_eq!(ITVL!(5, 10), ITVL!(5, 10));
+        assert_eq!(ITVL!(5, 10), ITVL!(5, 11;));
+        assert_eq!(ITVL!(;4, 10), ITVL!(5, 10));
+        assert!(ITVL!(5, 10;) < ITVL!(10, 15));
+        assert!(!(ITVL!(5, 10) < ITVL!(10, 15)));
+        assert!(ITVL!(5, 10;) < ITVL!(;10, 15));
+        assert!(ITVL!(10, 15) > ITVL!(5, 10;));
+        assert!(!(ITVL!(10, 15) > ITVL!(5, 10)));
+        assert!(ITVL!(;10, 15) > ITVL!(5, 10;));
+        assert!(ITVL!(5, 10;) < ITVL!(10,;));
+        assert!(!(ITVL!(5, 10) < ITVL!(10,;)));
+        assert!(ITVL!(;, 10;) < ITVL!(10,;));
+    }
+
+    #[test]
+    fn test_intersect() {
+        assert_eq!(ITVL!(5, 10), ITVL!(5, 10).intersect(&ITVL!(5, 10)).unwrap());
+        assert_eq!(ITVL!(5, 10), ITVL!(5, 10).intersect(&ITVL!(-5, 100)).unwrap());
+        assert_eq!(ITVL!(5, 9), ITVL!(5, 10).intersect(&ITVL!(5, 10;)).unwrap());
+        assert_eq!(ITVL!(6, 9), ITVL!(;5, 10;).intersect(&ITVL!(5, 10;)).unwrap());
+        assert_eq!(ITVL!(8, 10;), ITVL!(;5, 10;).intersect(&ITVL!(8, 12;)).unwrap());
+        assert_eq!(ITVL!(8, 10;), ITVL!(8, 12;).intersect(&ITVL!(;5, 10;)).unwrap());
+        assert!(ITVL!(5, 10).intersect(&ITVL!(-10, -5)).is_none());
+        assert!(ITVL!(5, 10;).intersect(&ITVL!(10, 15)).is_none());
+        assert_eq!(ITVL!(8, 11), ITVL!(8, 12;).intersect(&ITVL!(;;i32)).unwrap());
+        assert_eq!(ITVL!(;8, 11), ITVL!(8, 12;).intersect(&ITVL!(9,;)).unwrap());
     }
 }

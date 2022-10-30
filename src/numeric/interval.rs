@@ -78,7 +78,6 @@ impl<T: PrimInt + Signed> Interval<T> {
     pub fn is_overlap_with(&self, other: &Self) -> bool {
         self.intersect(other).is_some()
     }
-
 }
 
 impl<T: PrimInt + Signed> PartialEq for Interval<T> {

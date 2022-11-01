@@ -78,11 +78,11 @@ impl<T: PrimInt + Signed> Interval<T> {
     pub fn is_left_open(&self) -> bool { self.left_open }
     /// Returns true if right endpoint is exclusive, false otherwise.
     pub fn is_right_open(&self) -> bool { self.right_open }
-    /// Returns true iff the set has at least one infinity endpoint.
+    /// Returns true iff the set has no infinity endpoint.
     pub fn is_finite(&self) -> bool { self.left != Self::neg_inf() && self.right != Self::pos_inf() }
     /// Returns true iff the set has no element.
     pub fn is_empty(&self) -> bool { self.is_finite() && self.right <= self.left }
-    /// Returns a [`Option<u128>`] with valid value if the set is not finite. None, otherwise.
+    /// Returns a [`Option<u128>`] with a valid value if the set is finite. None, otherwise.
     pub fn size(&self) -> Option<u128> {
         if self.is_finite() {
             if self.is_empty() { Some(0) } else {
@@ -105,7 +105,7 @@ impl<T: PrimInt + Signed> Interval<T> {
         if self.left > Self::neg_inf() { Ok(self) } else { Err("Lower-bound cracks") }
     }
     /// Returns a new, normalized `Interval` representing the intersection of
-    /// `self` and `other` if they have non-empty intersection. None, otherwise.
+    /// `self` and `other` if they have a non-empty intersection. None, otherwise.
     /// # Examples
     /// ```
     /// use algorithm::ITVL;
@@ -135,7 +135,7 @@ impl<T: PrimInt + Signed> PartialEq for Interval<T> {
 }
 
 /// Two non-equal intervals `a` and `b` can be ordered iff `a.is_overlap_with(b)` is false.
-/// And the one with smallest endpoint is considered as the smaller one.
+/// And the one with smallest endpoint is considered to be smaller than the other.
 /// # Examples
 /// ```
 /// use algorithm::ITVL;
@@ -174,6 +174,16 @@ pub fn pos_inf_v<U: PrimInt>(_u: U) -> U { U::max_value() }
 pub fn neg_inf_v<U: PrimInt>(_u: U) -> U { U::min_value() }
 
 /// A macro `ITVL` is provided to create an [`Interval<T>`]
+/// A semicolon in [`crate::ITVL`] indicates that the endpoint is open or infinity.
+/// # Examples
+/// ```
+/// use algorithm::ITVL;
+/// let _a = ITVL!(5, 10;);  // [5, 10)
+/// let _b = ITVL!(;,1);     // (-INF, 1]
+/// let _c = ITVL!(-1000,;); // [-1000, +INF]
+/// let _d = ITVL!(;;i128);  // [-INF, +INF]; Type required since there is no way to deduce.
+/// let _e = ITVL!(0, 200);  // [0, 200]
+/// ```
 #[macro_export]
 macro_rules! ITVL {
     [$x:expr, $y: expr] => { $crate::numeric::interval::Interval::new($x, $y, false, false) };

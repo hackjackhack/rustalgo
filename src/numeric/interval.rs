@@ -1,3 +1,21 @@
+/// [`Interval<T>`] is a set of numbers consecutive on the given type `T`.
+/// 
+/// The set contains all number x which satisfies
+/// `left` <(or <=) x <(or <=) `right`.
+/// `left_open` and `right_open` decides whether the endpoint is including or
+/// excluding. Namely, a true `left_open` indicates that `left` is not in the set.
+///
+/// A macro [`crate::ITVL`] is provided to create [`Interval<T>`] concisely.
+/// A semicolon in [`crate::ITVL`] indicates that the endpoint is toward infinity.
+/// # Examples
+/// ```
+/// use algorithm::ITVL;
+/// let _a = ITVL!(5, 10;);  // [5, 10)
+/// let _b = ITVL!(;,1);     // (-INF, 1]
+/// let _c = ITVL!(-1000,;); // [-1000, +INF]
+/// let _d = ITVL!(;;i128);  // [-INF, +INF]; Type required.
+/// let _e = ITVL!(0, 200);  // [0, 200]
+/// ```
 #[derive(Clone, Debug)]
 pub struct Interval<T> {
     left: T,
@@ -8,6 +26,13 @@ pub struct Interval<T> {
 
 use num::PrimInt;
 use num::Signed;
+/// Currently, only [`Interval<T>`] over signed integer is fully implemented.
+/// Namely, intervals of this kind consist of purely signed integers. And the
+/// maximal and minimal possible values of the type T are used to represent
+/// +INF and -INF, respectively. Users should be aware of this.
+/// 
+/// Internally, the endpoints are normalized in the form [a, b). This avoid
+/// conditional execution in most operations.
 impl<T: PrimInt + Signed> Interval<T> {
     fn pos_inf() -> T { T::max_value() }
     fn neg_inf() -> T { T::min_value() }
@@ -28,6 +53,7 @@ impl<T: PrimInt + Signed> Interval<T> {
         else if self.right_open { self.right } else { self.right - T::one() }
     }
 
+    /// Creator
     pub fn new(left: T, right: T, left_open: bool, right_open: bool) -> Self {
         let mut _left_open = if left == Self::neg_inf() { true } else { left_open };
         let mut _right_open = if right == Self::pos_inf() { true } else { right_open };
@@ -38,15 +64,25 @@ impl<T: PrimInt + Signed> Interval<T> {
             right_open: _right_open
         }
     }
+    /// Returns the left endpoint.
     pub fn left(&self) -> T { self.unnorm_left() }
+    /// Returns the right endpoint.
     pub fn right(&self) -> T { self.unnorm_right() }
+    /// Returns the normalized left endpoint.
     pub fn normed_left(&self) -> T { self.left }
+    /// Returns the normalized right endpoint.
     pub fn normed_right(&self) -> T { self.right.max(self.left) }
+    /// Returns the normalized interval. 
     pub fn norm(&self) -> Self { Self::new(self.normed_left(), self.normed_right(), false, true) }
+    /// Returns true if left endpoint is exclusive, false otherwise.
     pub fn is_left_open(&self) -> bool { self.left_open }
+    /// Returns true if right endpoint is exclusive, false otherwise.
     pub fn is_right_open(&self) -> bool { self.right_open }
+    /// Returns true iff the set has at least one infinity endpoint.
     pub fn is_finite(&self) -> bool { self.left != Self::neg_inf() && self.right != Self::pos_inf() }
+    /// Returns true iff the set has no element.
     pub fn is_empty(&self) -> bool { self.is_finite() && self.right <= self.left }
+    /// Returns a [`Option<u128>`] with valid value if the set is not finite. None, otherwise.
     pub fn size(&self) -> Option<u128> {
         if self.is_finite() {
             if self.is_empty() { Some(0) } else {
@@ -58,14 +94,24 @@ impl<T: PrimInt + Signed> Interval<T> {
             None
         }
     }
+    /// Move the right endpoint toward +INF by the amount `addend`
     pub fn extend_right(&mut self, addend: T) -> Result<&Self, &'static str> {
         self.right = self.right.saturating_add(addend);
         if self.right < Self::pos_inf() { Ok(self) } else { Err("Upper-bound cracks") }
     }
+    /// Move the left endpoint toward -INF by the amount `addend`
     pub fn extend_left(&mut self, addend: T) -> Result<&Self, &'static str> {
         self.left = self.left.saturating_sub(addend);
         if self.left > Self::neg_inf() { Ok(self) } else { Err("Lower-bound cracks") }
     }
+    /// Returns a new, normalized `Interval` representing the intersection of
+    /// `self` and `other` if they have non-empty intersection. None, otherwise.
+    /// # Examples
+    /// ```
+    /// use algorithm::ITVL;
+    /// assert_eq!(ITVL!(8, 10;), ITVL!(8, 12;).intersect(&ITVL!(;5, 10;)).unwrap());
+    /// assert!(ITVL!(5, 10).intersect(&ITVL!(-10, -5)).is_none());
+    /// ```
     pub fn intersect(&self, other: &Self) -> Option<Self> {
         if self == other { return Some(self.clone()); }
         if self < other || other < self { return None }
@@ -75,17 +121,30 @@ impl<T: PrimInt + Signed> Interval<T> {
             false, true
         ))
     }
+    /// Returns true iff `self` and `other` have a non-empty intersection.
     pub fn is_overlap_with(&self, other: &Self) -> bool {
         self.intersect(other).is_some()
     }
 }
 
+/// Two intervals equals to each others iff the sets represented have identical endpoints.
 impl<T: PrimInt + Signed> PartialEq for Interval<T> {
     fn eq(&self, other: &Self) -> bool {
         self.left == other.left && self.right == other.right
     }
 }
 
+/// Two non-equal intervals `a` and `b` can be ordered iff `a.is_overlap_with(b)` is false.
+/// And the one with smallest endpoint is considered as the smaller one.
+/// # Examples
+/// ```
+/// use algorithm::ITVL;
+/// assert!(ITVL!(5, 10;) < ITVL!(;10, 15));
+/// assert!(ITVL!(10, 15) > ITVL!(5, 10;));
+/// assert!(!(ITVL!(5, 10) < ITVL!(10,20))
+///         && !(ITVL!(5, 10) == ITVL!(10,20))
+///         && !(ITVL!(5, 10) > ITVL!(10,20)));
+/// ```
 impl<T: PrimInt + Signed> PartialOrd for Interval<T> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         if self == other {
@@ -114,6 +173,7 @@ impl<T: PrimInt + Signed + ToString> std::fmt::Display for Interval<T> {
 pub fn pos_inf_v<U: PrimInt>(_u: U) -> U { U::max_value() }
 pub fn neg_inf_v<U: PrimInt>(_u: U) -> U { U::min_value() }
 
+/// A macro `ITVL` is provided to create an [`Interval<T>`]
 #[macro_export]
 macro_rules! ITVL {
     [$x:expr, $y: expr] => { $crate::numeric::interval::Interval::new($x, $y, false, false) };
@@ -243,6 +303,7 @@ mod tests {
         assert!(ITVL!(5, 10;) < ITVL!(10,;));
         assert!(!(ITVL!(5, 10) < ITVL!(10,;)));
         assert!(ITVL!(;, 10;) < ITVL!(10,;));
+        assert!(!(ITVL!(5, 10) < ITVL!(10,20)) && !(ITVL!(5, 10) == ITVL!(10,20)) && !(ITVL!(5, 10) > ITVL!(10,20)));
     }
 
     #[test]

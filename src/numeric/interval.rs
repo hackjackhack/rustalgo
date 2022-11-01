@@ -6,14 +6,14 @@
 /// excluding. Namely, a true `left_open` indicates that `left` is not in the set.
 ///
 /// A macro [`crate::ITVL`] is provided to create [`Interval<T>`] concisely.
-/// A semicolon in [`crate::ITVL`] indicates that the endpoint is toward infinity.
+/// A semicolon in [`crate::ITVL`] indicates that the endpoint is open or infinity.
 /// # Examples
 /// ```
 /// use algorithm::ITVL;
 /// let _a = ITVL!(5, 10;);  // [5, 10)
 /// let _b = ITVL!(;,1);     // (-INF, 1]
 /// let _c = ITVL!(-1000,;); // [-1000, +INF]
-/// let _d = ITVL!(;;i128);  // [-INF, +INF]; Type required.
+/// let _d = ITVL!(;;i128);  // [-INF, +INF]; Type required since there is no way to deduce.
 /// let _e = ITVL!(0, 200);  // [0, 200]
 /// ```
 #[derive(Clone, Debug)]
